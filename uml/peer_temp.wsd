@@ -1,0 +1,23 @@
+@startuml
+title "Consensus"
+scale 1.0
+
+interface PeerConnection {
+    +send()
+}
+PeerConnection <|.. AbstractPeerConnection
+
+abstract class AbstractPeerConnection {
+    -Peer
+    -PeerInfo
+    -CapabilityMultiplexer
+    -...
+}
+
+class NettyPeerConnection {
+    
+}
+
+AbstractPeerConnection <|- NettyPeerConnection
+
+@enduml

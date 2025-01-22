@@ -1,0 +1,220 @@
+@startuml
+
+title "Besu Controller"
+scale 1.0
+
+class Besu {
+    +main()
+}
+
+class BesuCommand {
+    -BesuController
+    -Runner
+    -BesuPluginContextImpl
+    +parse()
+    +run()
+}
+
+class BesuController {
+    -ProtocolSchedule
+    -ProtocolContext
+    -EthProtocolManager
+    -GenesisConfigOptions
+    -SubProtocolConfiguration
+    -NodeKey
+    -Synchronizer
+    -SyncState
+    -MiningCoordinator
+    -MiningParameters
+    -TransactionPool
+    -JsonRpcMethods
+    -PrivacyParameters
+    -PluginServiceFactory
+    -Closeable:List
+    +get()
+}
+
+class DefaultSynchronizer {
+    -SyncState
+    -BlockPropagationManager
+    -FullSyncDownloader
+    -FastSyncDownloader:Optional
+    -Pruner:Optional
+}
+
+interface Synchronizer {
+    +start()
+    +stop()
+}
+
+class BftMiningCoordinator {
+    -BftEventHandler
+    -BftProcessor
+    -BftBlockCreatorFactory
+    -BftEventQueue
+    -BftExecutors
+    +Blockchain
+}
+
+interface MiningCoordinator {
+    +start()
+    +stop()
+    +createBlock()
+}
+
+interface BlockAddedObserver {
+    +onBlockAdded()
+}
+
+Besu --> BesuCommand
+
+BesuCommand *-- BesuController
+MiningCoordinator <|.. BftMiningCoordinator
+BftMiningCoordinator ..|> BlockAddedObserver
+Synchronizer <|.. DefaultSynchronizer
+BesuController o-- MiningCoordinator
+BesuController o-- Synchronizer
+
+interface ProtocolSchedule {
+    +getByBlockNumber()
+    +streamMilestoneBlocks()
+    +getChainId()
+    +setPublicWorldStateArchiveForPrivacyBlockProcessor()
+    +setTransactionFilter()
+}
+
+class MutableProtocolSchedule {
+    -ScheduledProtocolSpec:NavigableSet
+    -chainId:BigInteger
+    +putMilestone()
+    +listMilestones()
+}
+
+MutableProtocolSchedule --|> ProtocolSchedule
+BesuController o-- ProtocolSchedule
+
+class ProtocolContext {
+    -MutableBlockchain
+    -WorldStateArchive
+    -ConsensusContext
+    +get()
+}
+
+interface Blockchain {
+    +getChainHead()
+    +getChainHeadBlockNumber()
+    +getChainHeadHash()
+    +getGenesisBlock()
+    +getBlockByNumber()
+    +getBlockByHash()
+    +......()
+}
+
+interface MutableBlockchain {
+    +appendBlock()
+    +rewindToBlock()
+}
+
+class DefaultBlockchain {
+    -BlockchainStorage
+    -BlockAddedObserver:Subscribers
+    -ChainReorgObserver:Subscribers
+}
+
+
+Blockchain <|..MutableBlockchain
+MutableBlockchain <|.. DefaultBlockchain
+ProtocolContext o-- Blockchain
+BesuController o-- ProtocolContext
+
+interface WorldStateArchive {
+    +get()
+    +getMutable()
+    +getNodeData()
+    +getAccountProof()
+    +......()
+}
+
+class DefaultWorldStateArchive {
+    -WorldStateStorage
+    -WorldStatePreimageStorage
+    -WorldStateProofProvider
+    +getWorldStateStorage()
+}
+
+WorldStateArchive <|.. DefaultWorldStateArchive
+ProtocolContext o-- WorldStateArchive
+
+interface ConsensusContext {
+    +as()
+}
+interface PoaContext {
+    +getBlockInterface()
+}
+
+class BftContext {
+    -ValidatorProvider
+    -EpochManager
+    -BftBlockInterface
+    +get()
+}
+ConsensusContext <|.. PoaContext
+PoaContext <|.. BftContext
+ProtocolContext o-- ConsensusContext
+
+interface MinedBlockObserver {
+    +blockMined()
+}
+
+interface ProtocolManager {
+    +handleNewConnection()
+    +processMessage()
+    +handleDisconnect()
+    +stop()
+    +close()
+}
+
+class EthProtocolManager {
+    -EthScheduler
+    -ForkIdManager
+    -EthPeers
+    -EthMessages
+    -EthContext
+    -Blockchain
+    -BlockBroadcaster
+    -PeerValidator:List
+}
+
+ProtocolManager <|.. EthProtocolManager
+MinedBlockObserver <|.. EthProtocolManager
+BesuController o-- EthProtocolManager
+
+class SyncState {
+    -Blockchain
+    -EthPeers
+    -InSyncTracker:map
+    -SyncStatusListener:Subscribers
+    -SyncTarget:Optional
+    -WorldStateDownloadStatus:Optional
+}
+
+BesuController o-- SyncState
+DefaultSynchronizer o-- SyncState
+
+class TransactionPool {
+    -AbstractPendingTransactionsSorter
+    -ProtocolSchedule
+    -ProtocolContext
+    -TransactionBatchAddedListener
+    -SyncState
+    -Wei
+    -PeerTransactionTracker
+    -PeerPendingTransactionTracker
+    -TransactionPoolConfiguration
+    -LabelledMetric<Counter>
+}
+
+BlockAddedObserver <|-- TransactionPool
+BesuController o-- TransactionPool
+
+@enduml

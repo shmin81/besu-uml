@@ -1,0 +1,159 @@
+@startuml
+
+title "Besu - JsonRpc"
+
+scale 1.0
+
+enum RpcMethod {
+  ADMIN_ADD_PEER
+  ADMIN_NODE_INFO
+  ADMIN_PEERS
+  ADMIN_REMOVE_PEER
+  ADMIN_CHANGE_LOG_LEVEL
+  PRIV_CALL
+  EEA_SEND_RAW_TRANSACTION
+  ETH_ACCOUNTS
+  ETH_BLOCK_NUMBER
+  ETH_CALL
+  ETH_ESTIMATE_GAS
+  ETH_GAS_PRICE
+  ETH_GET_BALANCE
+  WEB3_CLIENT_VERSION
+  WEB3_SHA3
+  etc.
+}
+
+enum RpcApis {
+  ETH
+  DEBUG
+  MINER
+  NET
+  PERM
+  WEB3
+  ADMIN
+  EEA
+  PRIV
+  TXPOOL
+  TRACE
+  PLUGINS
+  GOQUORUM
+  CLIQUE
+  IBFT
+  QBFT
+}
+
+class RunnerBuilder {
+    -jsonRpcMethods()
+}
+JsonRpcMethodsFactory <.. RunnerBuilder
+
+
+class JsonRpcMethodsFactory {
+    +methods()
+}
+JsonRpcMethod <.. JsonRpcMethodsFactory
+
+interface JsonRpcMethod {
+    +getName()
+    +response()
+    +getPermissions()
+}
+
+interface JsonRpcMethods {
+    +create()
+}
+JsonRpcMethods ..|> JsonRpcMethod
+
+abstract class ApiGroupJsonRpcMethods {
+    +getApiGroup()
+    -mapOf()
+}
+ApiGroupJsonRpcMethods ..|> JsonRpcMethods
+
+class IbftJsonRpcMethods {
+}
+IbftJsonRpcMethods --|> ApiGroupJsonRpcMethods
+
+
+class AdminJsonRpcMethods {
+}
+AdminJsonRpcMethods --|> ApiGroupJsonRpcMethods
+AdminJsonRpcMethods --> AdminAddPeer
+AdminJsonRpcMethods --> AdminRemovePeer
+AdminJsonRpcMethods --> AdminNodeInfo
+
+
+class EthJsonRpcMethods {
+}
+EthJsonRpcMethods --|> ApiGroupJsonRpcMethods
+EthJsonRpcMethods --> EthBlockNumber
+EthJsonRpcMethods --> EthChainId
+EthJsonRpcMethods --> EthEstimateGas
+EthJsonRpcMethods --> EthSendRawTransaction
+
+
+class PermJsonRpcMethods {
+}
+PermJsonRpcMethods --|> ApiGroupJsonRpcMethods
+
+class TxPoolJsonRpcMethods {
+}
+TxPoolJsonRpcMethods --|> ApiGroupJsonRpcMethods
+
+
+class PrivacyApiGroupJsonRpcMethods {
+}
+PrivacyApiGroupJsonRpcMethods --|> ApiGroupJsonRpcMethods
+
+class EeaJsonRpcMethods {
+}
+EeaJsonRpcMethods --|> PrivacyApiGroupJsonRpcMethods
+
+class PrivJsonRpcMethods {
+}
+PrivJsonRpcMethods --|> PrivacyApiGroupJsonRpcMethods
+
+
+abstract class AdminModifyPeer {
+    -performOperation()
+}
+AdminModifyPeer ..|> JsonRpcMethod
+
+class AdminAddPeer {
+
+}
+AdminAddPeer --|> AdminModifyPeer
+
+class AdminRemovePeer {
+
+}
+AdminRemovePeer --|> AdminModifyPeer
+
+
+
+class AdminNodeInfo {
+    -getNodeAsString()
+}
+AdminNodeInfo ..|> JsonRpcMethod
+
+class EthBlockNumber {
+}
+EthBlockNumber ..|> JsonRpcMethod
+
+class EthChainId {
+}
+EthChainId ..|> JsonRpcMethod
+
+class EthEstimateGas {
+    -BlockchainQueries
+    -TransactionSimulator
+    -processEstimateGas()
+}
+EthEstimateGas ..|> JsonRpcMethod
+
+class EthSendRawTransaction {
+    -TransactionPool
+}
+EthSendRawTransaction ..|> JsonRpcMethod
+
+@enduml

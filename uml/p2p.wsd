@@ -1,0 +1,205 @@
+@startuml
+title "Besu - P2P"
+scale 1.5
+
+
+class NetworkRunner {
+  -P2PNetwork
+  -subProtocols
+  -protocolManagers
+  +start()
+  +stop()
+  +getNetwork()
+}
+
+NetworkRunner <-- DefaultP2PNetwork
+
+interface P2PNetwork {
+  +start()
+  +stop()
+  +getPeers()
+  +getPeerCount()
+  +streamDiscoveredPeers()
+  +subscribe()
+  +connect()
+  +subscribe()
+  +streamDiscoveredPeers()
+  +addMaintainedConnectionPeer()
+  +removeMaintainedConnectionPeer()
+  +subscribeConnect()
+  +...
+}
+
+class MaintainedPeers {
+ -maintainedPeers:Set
+ -addedSubscribers
+ -removedCallbackSubscribers
+ +add()
+ +remove()
+ +contains()
+ +size()
+ +subscribeAdd()
+ +subscribeRemove()
+ +streamPeers()
+}
+
+MaintainedPeers *-- DefaultP2PNetwork
+
+interface Peer {
+  +getEnodeURL()
+  +getEnodeURLString()
+}
+
+class DefaultPeer {
+ -enodeURL
+ +fromEnodeURL()
+ +fromURI()
+}
+
+class DefaultPeerId {
+ -id:Bytes
+ -keccak256:Bytes32
+ +getId()
+}
+
+class DiscoveryPeer {
+ -status:PeerDiscoveryStatus
+ -endpoint
+ -nodeRecord
+ -forkId
+ -firstDiscovered
+ -lastContacted
+ -lastSeen
+ -lastAttemptedConnection
+ +get...()
+ +set...()
+}
+
+Peer <|. DefaultPeer
+DefaultPeer -|> DefaultPeerId
+DefaultPeer <|-- DiscoveryPeer
+
+DiscoveryPeer *-- PeerDiscoveryAgent
+DiscoveryPeer *-- PeerDiscoveryController
+
+class DefaultP2PNetwork {
+  -peerConnectionScheduler: ScheduledExecutorService
+  -PeerDiscoveryAgent
+  -RlpxAgent
+  -PeerPermissions
+  -MaintainedPeers:staticNodes
+  -NatService
+  
+  +checkMaintainedConnectionPeers():repeat_run
+  +attemptPeerConnections():repeat_run
+  +createDaemonListener()
+}
+
+P2PNetwork <.. DefaultP2PNetwork 
+
+
+class PeerDiscoveryAgent {
+  -bootstrapPeers:List<DiscoveryPeer>
+  -peerRequirements
+  -peerPermissions
+  -rlpxAgent
+  -ForkIdManager
+  -NatService
+  +start()
+  +updateNodeRecord()
+  -startController()
+  -createController(): PeerDiscoveryController
+  #handleIncomingPacket()
+  #handleOutgoingPacket()
+  +streamDiscoveredPeers()
+  -dropPeer()
+  -....
+}
+
+DefaultP2PNetwork *- PeerDiscoveryAgent
+
+class RlpxAgent {
+  -PeerConnectionEvents
+  -ConnectionInitializer
+  -PeerRlpxPermissions
+  -PeerPrivileges
+  -connectionsById:Map<Bytes, RlpxConnection>
+  -...
+  +start()
+  +stop()
+  +streamConnections()
+  +connect()
+  +disconnect()
+  +getPeerConnection()
+  -...()
+}
+
+DefaultP2PNetwork *-- RlpxAgent
+
+class PeerDiscoveryController {
+  -localPeer:DiscoveryPeer
+  -PeerTable
+  -bootstrapNodes:Collection<DiscoveryPeer>
+  -PeerDiscoveryPermissions
+  -DiscoveryProtocolLogger
+  -RecursivePeerRefreshState
+  -forkIdManager
+  -RlpxAgent
+  -RetryDelayFunction
+  -PeerRequirement
+  -RecursivePeerRefreshState
+  -
+  +start()
+  +stop()
+  -refreshTableIfRequired():repeat_run
+  -refreshTable()
+  +onMessage()
+  +bond()
+  +createPacket()
+  -sendPacket()
+  -addToPeerTable()
+  +connectOnRlpxLayer()
+  -...
+}
+
+PeerDiscoveryAgent *- PeerDiscoveryController
+
+class PeerTable {
+ +tryAdd
+ +tryEvict
+ +nearestPeers()
+ +streamAllPeers()
+}
+
+PeerDiscoveryController *- PeerTable
+RecursivePeerRefreshState *- PeerTable
+
+class RecursivePeerRefreshState {
+ -PeerDiscoveryPermissions
+ -peerTable
+ -BondingAgent
+ -FindNeighbourDispatcher
+ -...
+ +start()
+ -addInitialPeers()
+ -bondingInitiateRound()
+ -neighboursInitiateRound()
+ +onBondingComplete()
+ -bondingRoundCandidates()
+ -neighboursRoundCandidates()
+}
+
+PeerDiscoveryController *-- RecursivePeerRefreshState
+
+class MetadataPeer {
+  -DiscoveryPeer
+  +getPeer()
+  +isBondingCandidate()
+  +isNeighboursRoundCandidate()
+  +...
+}
+
+MetadataPeer -* RecursivePeerRefreshState
+
+
+@enduml

@@ -1,0 +1,347 @@
+@startuml
+
+title "Besu TransactionPool"
+scale 1.0
+
+
+class BesuController {
+    -ProtocolSchedule
+    -ProtocolContext
+    -EthProtocolManager
+    -GenesisConfigOptions
+    -SubProtocolConfiguration
+    -NodeKey
+    -Synchronizer: DefaultSynchronizer
+    -SyncState
+    -MiningCoordinator: BftMiningCoordinator
+    -MiningParameters
+    -TransactionPool
+    -JsonRpcMethods
+    -PrivacyParameters
+    -PluginServiceFactory
+    -Closeable:List
+    +get()
+}
+
+interface BlockAddedObserver {
+    +onBlockAdded()
+}
+
+interface ProtocolSchedule {
+    +getByBlockNumber()
+    +streamMilestoneBlocks()
+    +getChainId()
+    +setPublicWorldStateArchiveForPrivacyBlockProcessor()
+    +setTransactionFilter()
+}
+
+class MutableProtocolSchedule {
+    -ScheduledProtocolSpec:NavigableSet
+    -chainId:BigInteger
+    +putMilestone()
+    +listMilestones()
+}
+
+ProtocolSchedule <|.. MutableProtocolSchedule
+BesuController o-- ProtocolSchedule
+
+class ProtocolContext {
+    -MutableBlockchain:DefaultBlockchain
+    -WorldStateArchive
+    -ConsensusContext
+}
+
+interface Blockchain {
+    +getChainHead()
+    +getChainHeadBlockNumber()
+    +getChainHeadHash()
+    +getGenesisBlock()
+    +getBlockByNumber()
+    +getBlockByHash()
+    +...()
+}
+
+interface MutableBlockchain {
+    +appendBlock()
+    +rewindToBlock()
+}
+
+class DefaultBlockchain {
+    -BlockchainStorage
+    -BlockAddedObserver:Subscribers
+    -ChainReorgObserver:Subscribers
+}
+
+
+Blockchain <|.. MutableBlockchain
+MutableBlockchain <|.. DefaultBlockchain
+ProtocolContext o-- MutableBlockchain
+BesuController o-- ProtocolContext
+
+interface WorldStateArchive {
+
+}
+
+class DefaultWorldStateArchive {
+    -WorldStateStorage
+    -WorldStatePreimageStorage
+    -WorldStateProofProvider
+}
+
+WorldStateArchive <|.. DefaultWorldStateArchive
+ProtocolContext o-- WorldStateArchive
+
+interface ConsensusContext {
+
+}
+interface PoaContext {
+    +getBlockInterface()
+}
+
+class BftContext {
+    -ValidatorProvider
+    -EpochManager
+    -BftBlockInterface
+}
+ConsensusContext <|.. PoaContext
+PoaContext <|.. BftContext
+ProtocolContext o-- ConsensusContext
+
+interface MinedBlockObserver {
+    +blockMined()
+}
+
+interface ProtocolManager {
+    +handleNewConnection()
+    +processMessage()
+    +handleDisconnect()
+}
+
+class EthProtocolManager {
+    -EthScheduler
+    -ForkIdManager
+    -EthPeers
+    -EthMessages
+    -EthContext
+    -Blockchain
+    -BlockBroadcaster
+    -PeerValidator:List
+}
+
+ProtocolManager <|.. EthProtocolManager
+MinedBlockObserver <|.. EthProtocolManager
+BesuController o-- EthProtocolManager
+
+class SyncState {
+    -Blockchain
+    -EthPeers
+    -InSyncTracker:map
+    -SyncStatusListener:Subscribers
+    -SyncTarget:Optional
+    -WorldStateDownloadStatus:Optional
+}
+
+
+class TransactionPool {
+    -AbstractPendingTransactionsSorter
+    -PeerTransactionTracker
+    -PeerPendingTransactionTracker
+    -ProtocolSchedule
+    -ProtocolContext
+    -TransactionBatchAddedListener:TransactionSender
+    -TransactionBatchAddedListener:PendingTransactionSender
+    -TransactionPoolConfiguration
+    -SyncState
+    -minTransactionGasPrice:Wei
+    -duplicateTransactionCounter:LabelledMetric<Counter>
+}
+
+interface TransactionBatchAddedListener{
+    +onTransactionsAdded()
+}
+
+class TransactionSender {
+    -PeerTransactionTracker
+    -TransactionsMessageSender
+    -EthContext
+}
+
+class PendingTransactionSender {
+    -PeerPendingTransactionTracker
+    -PendingTransactionsMessageSender
+    -EthContext
+}
+
+TransactionSender ..|> TransactionBatchAddedListener
+PendingTransactionSender ..|> TransactionBatchAddedListener
+
+BlockAddedObserver <|.. TransactionPool
+BesuController o-- TransactionPool
+
+ProtocolSchedule --o TransactionPool
+TransactionPool o-- ProtocolContext
+TransactionPool o-- TransactionSender
+TransactionPool o-- PendingTransactionSender
+
+SyncState --o TransactionPool
+
+interface EthPeer.DisconnectCallback {
+    +onDisconnect()    
+}
+
+PeerTransactionTracker ..|> EthPeer.DisconnectCallback
+PeerPendingTransactionTracker ..|> EthPeer.DisconnectCallback
+
+TransactionPool o-- PeerTransactionTracker 
+TransactionPool o-- PeerPendingTransactionTracker 
+
+class PeerTransactionTracker {
+    -seenTransactions:Map<EthPeer, Set<Hash>>
+    -transactionsToSend:Map<EthPeer, Set<Transaction>>
+    +markTransactionsHashesAsSeen()
+    +addToPeerSendQueue()
+    +getEthPeersWithUnsentTransactions()
+    +claimTransactionsToSendToPeer()
+}
+
+class PeerPendingTransactionTracker {
+    -pendingTransactions:AbstractPendingTransactionsSorter
+    -seenTransactions:Map<EthPeer, Set<Hash>>
+    -transactionsToSend:Map<EthPeer, Set<Hash>>
+    +markTransactionsHashesAsSeen()
+    +addToPeerSendQueue()
+    +getEthPeersWithUnsentTransactions()
+    +claimTransactionsToSendToPeer()
+}
+
+class TransactionsMessageSender {
+    -PeerTransactionTracker
+    +sendTransactionsToPeers()
+}
+
+class PendingTransactionsMessageSender {
+    -PeerPendingTransactionTracker
+    +sendTransactionsToPeers()
+}
+PeerTransactionTracker ..o TransactionSender
+PeerPendingTransactionTracker ..o PendingTransactionSender
+
+PeerTransactionTracker ..o TransactionsMessageSender
+PeerPendingTransactionTracker ..o PendingTransactionsMessageSender
+
+TransactionsMessageSender ..o TransactionSender
+PendingTransactionsMessageSender ..o PendingTransactionSender
+
+
+class AbstractPendingTransactionsSorter.TransactionInfo {
+    -Transaction
+    -receivedFromLocalSource:bool
+    -addedToPoolAt:Instant
+    -sequence:
+    +getTransaction()
+    +getGasPrice()
+    +getNonce()
+    +getSender()
+    +...()
+}
+AbstractPendingTransactionsSorter.TransactionInfo ..o AbstractPendingTransactionsSorter
+AbstractPendingTransactionsSorter.TransactionInfo ..o TransactionsForSenderInfo
+
+class TransactionsForSenderInfo {
+    -transactionsInfos:NavigableMap<Long, TransactionInfo>
+}
+
+TransactionsForSenderInfo ..o AbstractPendingTransactionsSorter
+
+abstract class AbstractPendingTransactionsSorter {
+    -newPooledHashes:EvictingQueue<Hash>
+    -pendingTransactions:Map<Hash, TransactionInfo>
+    -transactionsBySender:Map<Address, TransactionsForSenderInfo>
+    -pendingTransactionSubscribers:Subscribers<PendingTransactionListener>
+    -transactionDroppedListeners:Subscribers<PendingTransactionDroppedListener>
+    -TransactionPoolReplacementHandler
+    -chainHeadHeaderSupplier:Supplier<BlockHeader>
+    -etc
+    +evictOldTransactions()
+    +getLocalTransactions()
+    +addRemoteTransaction()
+    +addTransactionHash()
+    +removeTransaction()
+    +transactionAddedToBlock()
+    +selectTransactions()
+    +...()
+}
+
+class BaseFeePendingTransactionsSorter {
+    -baseFee:Optional<Long>
+    -prioritizedTransactionsStaticRange:NavigableSet<TransactionInfo>
+    -prioritizedTransactionsDynamicRange:NavigableSet<TransactionInfo>
+    +manageBlockAdded()
+    +doRemoveTransaction()
+    +prioritizedTransactions()
+    +addTransaction()
+    +updateBaseFee()
+}
+
+class GasPricePendingTransactionsSorter {
+    -prioritizedTransactions:NavigableSet<TransactionInfo>
+    +manageBlockAdded()
+    +doRemoveTransaction()
+    +prioritizedTransactions()
+    +addTransaction()
+}
+
+AbstractPendingTransactionsSorter <|.. BaseFeePendingTransactionsSorter
+AbstractPendingTransactionsSorter <|.. GasPricePendingTransactionsSorter
+
+AbstractPendingTransactionsSorter --o TransactionPool
+
+class TransactionPoolReplacementHandler {
+    -rules: List<TransactionPoolReplacementRule>
+    +shouldReplace()
+}
+TransactionPoolReplacementHandler ..* AbstractPendingTransactionsSorter
+
+
+interface TransactionPoolReplacementRule {
+    +shouldReplace()
+    +isNotGasPriced()
+}
+TransactionPoolReplacementRule --* TransactionPoolReplacementHandler 
+
+class TransactionReplacementByGasPriceRule {
+    -priceBump:Percentage
+}
+
+class TransactionReplacementByFeeMarketRule {
+    -priceBump:Percentage
+    -FRONTIER_CALCULATOR:TransactionPriceCalculator
+    -EIP1559_CALCULATOR:TransactionPriceCalculator
+}
+
+TransactionReplacementByGasPriceRule ..|> TransactionPoolReplacementRule
+TransactionReplacementByFeeMarketRule ..|> TransactionPoolReplacementRule
+
+
+class Subscribers<T> {
+    -subscribers:Map<Long, T>
+    +create()
+    +subscribe()
+    +unsubscribe()
+    +forEach()
+    +getSubscriberCount()
+}
+Subscribers --* AbstractPendingTransactionsSorter
+
+interface PendingTransactionListener {
+    +onTransactionAdded()
+}
+PendingTransactionListener .. Subscribers
+
+interface PendingTransactionDroppedListener {
+    +onTransactionDropped()
+}
+PendingTransactionDroppedListener .. Subscribers
+
+
+@enduml

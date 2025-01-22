@@ -1,0 +1,173 @@
+@startuml
+
+title "Besu - JsonRpc"
+
+scale 1.0
+
+enum RpcMethod {
+  ADMIN_ADD_PEER
+  ADMIN_NODE_INFO
+  ADMIN_PEERS
+  ADMIN_REMOVE_PEER
+  ADMIN_CHANGE_LOG_LEVEL
+  PRIV_CALL
+  EEA_SEND_RAW_TRANSACTION
+  ETH_BLOCK_NUMBER
+  ETH_CALL
+  ETH_ESTIMATE_GAS
+  ETH_GAS_PRICE
+  ETH_GET_BALANCE
+  WEB3_CLIENT_VERSION
+  etc.
+}
+
+enum RpcApis {
+  ETH
+  NET
+  PERM
+  WEB3
+  ADMIN
+  EEA
+  PRIV
+  TXPOOL
+  TRACE
+  DEBUG
+  ...
+  IBFT
+  QBFT
+}
+
+class RunnerBuilder {
+    -jsonRpcMethods()
+}
+RunnerBuilder ..> JsonRpcMethodsFactory
+
+
+class JsonRpcMethodsFactory {
+    +methods()
+}
+JsonRpcMethodsFactory ..> JsonRpcMethod
+
+JsonRpcMethodsFactory *-- AdminJsonRpcMethods
+JsonRpcMethodsFactory *-- EthJsonRpcMethods
+JsonRpcMethodsFactory *-- TxPoolJsonRpcMethods
+JsonRpcMethodsFactory *-- PrivJsonRpcMethods
+
+interface JsonRpcMethod {
+    +getName()
+    +response()
+    +getPermissions()
+}
+
+interface JsonRpcMethods {
+    +create()
+}
+JsonRpcMethods ..|> JsonRpcMethod
+
+abstract class ApiGroupJsonRpcMethods {
+    +getApiGroup()
+    -mapOf()
+}
+ApiGroupJsonRpcMethods ..|> JsonRpcMethods
+
+class IbftJsonRpcMethods {
+}
+IbftJsonRpcMethods --|> ApiGroupJsonRpcMethods
+
+
+class AdminJsonRpcMethods {
+    -P2PNetwork
+    -BlockchainQueries
+    -EthPeers
+}
+AdminJsonRpcMethods --|> ApiGroupJsonRpcMethods
+AdminJsonRpcMethods --> AdminAddPeer
+AdminJsonRpcMethods --> AdminRemovePeer
+AdminJsonRpcMethods --> AdminNodeInfo
+
+
+class EthJsonRpcMethods {
+    -BlockchainQueries
+    -Synchronizer
+    -ProtocolSchedule
+    -FilterManager
+    -TransactionPool
+    -MiningCoordinator
+    -PrivacyParameters
+}
+EthJsonRpcMethods --|> ApiGroupJsonRpcMethods
+EthJsonRpcMethods --> EthBlockNumber
+EthJsonRpcMethods --> EthChainId
+EthJsonRpcMethods --> EthEstimateGas
+EthJsonRpcMethods --> EthSendRawTransaction
+
+
+class TxPoolJsonRpcMethods {
+    -TransactionPool
+}
+TxPoolJsonRpcMethods --|> ApiGroupJsonRpcMethods
+
+
+class PrivacyApiGroupJsonRpcMethods {
+    -BlockchainQueries
+    -ProtocolSchedule
+    -TransactionPool
+    -PrivacyParameters
+    -PrivateNonceProvider
+    -PrivacyQueries
+}
+PrivacyApiGroupJsonRpcMethods --|> ApiGroupJsonRpcMethods
+
+class PrivJsonRpcMethods {
+    -FilterManager
+}
+PrivJsonRpcMethods --|> PrivacyApiGroupJsonRpcMethods
+
+
+abstract class AdminModifyPeer {
+    -P2PNetwork
+    -performOperation()
+}
+AdminModifyPeer ..|> JsonRpcMethod
+
+class AdminAddPeer {
+
+}
+AdminAddPeer --|> AdminModifyPeer
+
+class AdminRemovePeer {
+
+}
+AdminRemovePeer --|> AdminModifyPeer
+
+
+class AdminNodeInfo {
+    -P2PNetwork
+    -BlockchainQueries
+    -getNodeAsString()
+}
+AdminNodeInfo ..|> JsonRpcMethod
+
+class EthBlockNumber {
+    -BlockchainQueries
+}
+EthBlockNumber ..|> JsonRpcMethod
+
+class EthChainId {
+    -chainId:BigInteger
+}
+EthChainId ..|> JsonRpcMethod
+
+class EthEstimateGas {
+    -BlockchainQueries
+    -TransactionSimulator
+    -processEstimateGas()
+}
+EthEstimateGas ..|> JsonRpcMethod
+
+class EthSendRawTransaction {
+    -TransactionPool
+}
+EthSendRawTransaction ..|> JsonRpcMethod
+
+@enduml

@@ -1,0 +1,146 @@
+@startuml
+title "BlockCreation - Sort by GasPrice"
+scale 1.0
+
+interface BlockCreator {
+    +createBlock() 
+}
+
+interface AsyncBlockCreator {
+    +cancel()
+    +isCancelled()
+}
+BlockCreator ..|> AsyncBlockCreator
+
+abstract class AbstractBlockCreator {
+    -coinbase:Address
+    -createBlock()
+    -duplicateWorldStateAtParent()
+    -selectTransactions()
+}
+AsyncBlockCreator ..|> AbstractBlockCreator
+
+class BftBlockCreator {
+    -BftExtraDataCodec
+    #createFinalBlockHeader()
+}
+AbstractBlockCreator ..|> BftBlockCreator
+
+class BlockTransactionSelector {
+    -MainnetTransactionProcessor
+    -ProcessableBlockHeader
+    -Blockchain
+    -MutableWorldState
+    -AbstractPendingTransactionsSorter
+    -AbstractBlockProcessor.TransactionReceiptFactory
+    -FeeMarket
+    -...
+    +buildTransactionListForBlock()
+    +evaluateTransactions()
+}
+BlockTransactionSelector ..o AbstractBlockCreator
+TransactionSelectionResults ..o AbstractBlockCreator
+TransactionSelectionResults ..o BlockTransactionSelector
+
+class TransactionSelectionResults {
+    -transactions:List<Transaction>
+    -receipts:List<TransactionReceipt>
+    -cumulativeGasUsed:Long
+    +getTransactions()
+    +getReceipts()
+    +getCumulativeGasUsed()
+}
+
+BlockTransactionSelector o.. AbstractPendingTransactionsSorter
+
+abstract class AbstractPendingTransactionsSorter {
+    -newPooledHashes:EvictingQueue<Hash>
+    -pendingTransactions:Map<Hash, TransactionInfo>
+    -transactionsBySender:Map<Address, TransactionsForSenderInfo>
+    -pendingTransactionSubscribers:Subscribers<PendingTransactionListener>
+    -transactionDroppedListeners:Subscribers<PendingTransactionDroppedListener>
+    -TransactionPoolReplacementHandler
+    -chainHeadHeaderSupplier:Supplier<BlockHeader>
+    -etc
+    +selectTransactions()
+    +addRemoteTransaction()
+    +addLocalTransaction()
+    +removeTransaction()
+    +...()
+}
+
+class GasPricePendingTransactionsSorter {
+    -prioritizedTransactions:NavigableSet<TransactionInfo>
+    #addTransaction()
+    #doRemoveTransaction()
+    #prioritizedTransactions()
+}
+
+AbstractPendingTransactionsSorter <|.. GasPricePendingTransactionsSorter
+
+class AccountTransactionOrder {
+    -transactionsForSender
+    -deferredTransactions
+    +transactionsToProcess()
+}
+AccountTransactionOrder --* AbstractPendingTransactionsSorter
+
+TransactionPool o-- AbstractPendingTransactionsSorter
+
+interface BaseBlockHeightManager {
+    +handleBlockTimerExpiry()
+    +roundExpired()
+    +getChainHeight()
+    +getParentBlockHeader()
+}
+
+interface BaseIbftBlockHeightManager {
+    +handleProposalPayload()
+    +handlePreparePayload()
+    +handleCommitPayload()
+    +handleRoundChangePayload()
+}
+
+BaseBlockHeightManager <|.. BaseIbftBlockHeightManager
+AbstractBlockCreator <--o IbftRound 
+
+class IbftBlockHeightManager {
+    -BlockHeader: parentHeader
+    -IbftMessageTransmitter
+    -BlockTimer
+    -BftFinalState
+    -IbftRound
+    -etc.
+    -startNewRound()
+}
+BaseIbftBlockHeightManager <|.. IbftBlockHeightManager
+
+class IbftRoundFactory {
+    -BftBlockCreatorFactory
+    -etc.
+    +createNewRound()
+    +createNewRoundWithState()
+}
+IbftBlockHeightManager o--> IbftRoundFactory
+
+class IbftRound {
+    -RoundState
+    -BlockCreator
+    -BlockImporter
+    -MessageFactory
+    -IbftMessageTransmitter
+    -etc.
+    +getRoundIdentifier()
+    +createAndSendProposalMessage()
+    +handleProposalMessage()
+    +handlePrepareMessage()
+    +handleCommitMessage()
+    -updateStateWithProposalAndTransmit()
+    -updateStateWithProposedBlock()
+    -importBlockToChain()
+    -etc()
+}
+IbftBlockHeightManager *.. IbftRound
+IbftRoundFactory ..> IbftRound
+
+@enduml

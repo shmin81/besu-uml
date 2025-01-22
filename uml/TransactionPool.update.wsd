@@ -1,0 +1,170 @@
+@startuml
+
+title "Besu TransactionPool v2"
+scale 1.0
+
+class TransactionPool {
+    -AbstractPendingTransactionsSorter
+    -PeerTransactionTracker
+    -PeerPendingTransactionTracker
+    -ProtocolSchedule
+    -ProtocolContext
+    -TransactionBatchAddedListener:TransactionSender
+    -TransactionBatchAddedListener:PendingTransactionSender
+    -TransactionPoolConfiguration
+    -SyncState
+    -minTransactionGasPrice:Wei
+    -duplicateTransactionCounter:LabelledMetric<Counter>
+}
+
+
+class AbstractPendingTransactionsSorter.TransactionInfo {
+    -Transaction
+    -receivedFromLocalSource:bool
+    -addedToPoolAt:Instant
+    -sequence:
+    +getTransaction()
+    +getGasPrice()
+    +getNonce()
+    +getSender()
+    +...()
+}
+AbstractPendingTransactionsSorter.TransactionInfo ..o AbstractPendingTransactionsSorter
+AbstractPendingTransactionsSorter.TransactionInfo ..o TransactionsForSenderInfo
+
+class TransactionsForSenderInfo {
+    -transactionsInfos:NavigableMap<Long, TransactionInfo>
+}
+
+TransactionsForSenderInfo ..o AbstractPendingTransactionsSorter
+
+abstract class AbstractPendingTransactionsSorter {
+    -newPooledHashes:EvictingQueue<Hash>
+    -pendingTransactions:Map<Hash, TransactionInfo>
+    -transactionsBySender:Map<Address, TransactionsForSenderInfo>
+    -pendingTransactionSubscribers:Subscribers<PendingTransactionListener>
+    -transactionDroppedListeners:Subscribers<PendingTransactionDroppedListener>
+    -TransactionPoolReplacementHandler
+    -chainHeadHeaderSupplier:Supplier<BlockHeader>
+    -etc
+    +evictOldTransactions()
+    +getLocalTransactions()
+    +addRemoteTransaction()
+    +addTransactionHash()
+    +removeTransaction()
+    +transactionAddedToBlock()
+    +selectTransactions()
+    +...()
+}
+
+class BaseFeePendingTransactionsSorter {
+    -baseFee:Optional<Long>
+    -prioritizedTXsStaticRange:NavigableSet<TxInfo>
+    -prioritizedTXsDynamicRange:NavigableSet<TxInfo>
+    +manageBlockAdded()
+    +doRemoveTransaction()
+    +prioritizedTransactions()
+    +addTransaction()
+    +updateBaseFee()
+}
+
+class GasPricePendingTransactionsSorter {
+    -prioritizedTransactions:NavigableSet<TxInfo>
+    +manageBlockAdded()
+    +doRemoveTransaction()
+    +prioritizedTransactions()
+    +addTransaction()
+}
+
+class FreeCostTransactionsSorter {
+    -prioritizedTransactions:NavigableSet<TxInfo>
+    +manageBlockAdded()
+    +doRemoveTransaction()
+    +prioritizedTransactions()
+    +addTransaction()
+}
+
+class FreeCostTransactionsSorter2 {
+    -prioritizedTransactions:NavigableSet<TxInfo>
+    -removePrioritizedTxs::NavigableSet<TxInfo>
+    +manageBlockAdded()
+    +doRemoveTransaction()
+    +prioritizedTransactions()
+    +addTransaction()
+}
+
+class FreeCostTransactionsSorter3 {
+    -prioritizedTransactions:NavigableSet<TxInfo>
+    -removePrioritizedTxs::NavigableSet<TxInfo>
+    +manageBlockAdded()
+    +doRemoveTransaction()
+    +prioritizedTransactions()
+    +addTransaction()
+}
+
+AbstractPendingTransactionsSorter <|.. BaseFeePendingTransactionsSorter
+AbstractPendingTransactionsSorter <|.. GasPricePendingTransactionsSorter
+
+AbstractPendingTransactionsSorter <|.. FreeCostTransactionsSorter
+AbstractPendingTransactionsSorter <|.. FreeCostTransactionsSorter2
+AbstractPendingTransactionsSorter <|.. FreeCostTransactionsSorter3
+
+TransactionPool o-- AbstractPendingTransactionsSorter
+
+
+
+class TransactionPoolReplacementHandler {
+    -rules: List<TransactionPoolReplacementRule>
+    +shouldReplace()
+}
+TransactionPoolReplacementHandler ..* AbstractPendingTransactionsSorter
+
+
+interface TransactionPoolReplacementRule {
+    +shouldReplace()
+    +isNotGasPriced()
+}
+TransactionPoolReplacementRule --* TransactionPoolReplacementHandler 
+
+class TransactionReplacementByGasPriceRule {
+    -priceBump:Percentage
+}
+
+class TransactionReplacementByFeeMarketRule {
+    -priceBump:Percentage
+    -FRONTIER_CALCULATOR:TransactionPriceCalculator
+    -EIP1559_CALCULATOR:TransactionPriceCalculator
+}
+
+TransactionReplacementByGasPriceRule ..|> TransactionPoolReplacementRule
+TransactionReplacementByFeeMarketRule ..|> TransactionPoolReplacementRule
+
+
+class AccountTransactionOrder {
+    -SORT_BY_NONCE:Comparator<Transaction> 
+    +transactionsToProcess()
+}
+
+AccountTransactionOrder --* AbstractPendingTransactionsSorter
+
+
+class TransactionPoolFactory {
+    +createTransactionPool()
+    +createPendingTransactionsSorter()
+}
+
+GasPricePendingTransactionsSorter ..> TransactionPoolFactory
+BaseFeePendingTransactionsSorter ..> TransactionPoolFactory
+FreeCostTransactionsSorter ..> TransactionPoolFactory
+FreeCostTransactionsSorter2 ..> TransactionPoolFactory
+FreeCostTransactionsSorter3 ..> TransactionPoolFactory
+
+
+class TransactionPoolConfiguration {
+    +getUseCostFreePendingTxSorter()
+    +getTxOrderType()
+    +...()
+}
+TransactionPoolFactory <.. TransactionPoolConfiguration
+
+@enduml

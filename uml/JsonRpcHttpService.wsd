@@ -1,0 +1,113 @@
+@startuml
+
+title "Besu - JsonRpcHttpService"
+
+scale 1.0
+
+class JsonRpcHttpService {
+    -Vertx
+    -JsonRpcConfiguration
+    -JsonRpcMethod:Map
+    -NatService
+    -OperationTimer:LabelledMetric
+    -Tracer
+    -AuthenticationService:Optional
+    -HttpServer
+    -HealthService
+    +start()
+    +stop()
+    -connectionHandler()
+    -buildRouter()
+    -handleJsonRPCRequest()
+    -handleJsonRpcError()
+    -......()
+}
+
+JsonRpcConfiguration <-- JsonRpcHttpService 
+JsonRpcMethod <-- JsonRpcHttpService 
+JsonRpcHttpService --> vertx.HttpServer
+JsonRpcHttpService --> vertx.Vertx
+JsonRpcHttpService --> opentelemetry.Tracer
+JsonRpcHttpService --> AuthenticationService 
+JsonRpcHttpService --> HealthService 
+
+interface JsonRpcMethod {
+    +getName()
+    +response()
+    +getPermissions()
+}
+
+class JsonRpcConfiguration {
+    +get()
+    +set()
+}
+
+interface vertx.HttpServer {
+}
+
+class vertx.Vertx {
+    +createHttpServer()
+}
+
+class opentelemetry.Tracer {
+}
+
+class AuthenticationService {
+    -JWTAuth
+    -AuthProvider: Optional
+    +create()
+    +handleLogin()
+    +handleDisabledLogin()
+    +getJwtAuthProvider()
+}
+
+class HealthService {
+    -HealthCheck
+    +handleRequest()
+}
+HealthService ..|> HealthCheck  
+
+interface HealthCheck {
+    +isHealthy()
+}
+
+class LivenessCheck {
+}
+HealthCheck <|.. LivenessCheck  
+
+class ReadinessCheck {
+}
+HealthCheck <|.. ReadinessCheck  
+
+
+class AdminPeers {
+    -setLogLevel()
+}
+AdminPeers ..|> JsonRpcMethod
+
+class AdminNodeInfo {
+    -getNodeAsString()
+}
+AdminNodeInfo ..|> JsonRpcMethod
+
+class EthBlockNumber {
+}
+EthBlockNumber ..|> JsonRpcMethod
+
+class EthChainId {
+}
+EthChainId ..|> JsonRpcMethod
+
+class EthEstimateGas {
+    -BlockchainQueries
+    -TransactionSimulator
+    -processEstimateGas()
+}
+EthEstimateGas ..|> JsonRpcMethod
+
+class EthSendRawTransaction {
+    -TransactionPool
+}
+EthSendRawTransaction ..|> JsonRpcMethod
+
+@enduml

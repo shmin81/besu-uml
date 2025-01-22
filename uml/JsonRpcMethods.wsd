@@ -1,0 +1,177 @@
+@startuml
+
+title "Besu - Runner"
+
+scale 1.0
+
+enum RpcMethod {
+  ADMIN_ADD_PEER
+  ADMIN_NODE_INFO
+  ADMIN_PEERS
+  ADMIN_REMOVE_PEER
+  ETH_ACCOUNTS
+  ETH_BLOCK_NUMBER
+  ETH_CALL
+  WEB3_CLIENT_VERSION
+  WEB3_SHA3
+  Etc.
+}
+
+enum RpcApis {
+  ETH
+  DEBUG
+  MINER
+  NET
+  PERM
+  WEB3
+  ADMIN
+  EEA
+  PRIV
+  TXPOOL
+  TRACE
+  PLUGINS
+  GOQUORUM
+  CLIQUE
+  IBFT
+  QBFT
+}
+
+class JsonRpcMethodsFactory {
+    +methods()
+}
+JsonRpcMethod <.. JsonRpcMethodsFactory
+
+
+interface JsonRpcMethod {
+    +getName()
+    +response()
+    +getPermissions()
+}
+
+interface JsonRpcMethods {
+    +create()
+}
+JsonRpcMethods ..|> JsonRpcMethod
+
+abstract class ApiGroupJsonRpcMethods {
+    +getApiGroup()
+    -mapOf()
+}
+ApiGroupJsonRpcMethods --|> JsonRpcMethods
+
+class CliqueJsonRpcMethods {
+}
+CliqueJsonRpcMethods --|> ApiGroupJsonRpcMethods
+
+class IbftJsonRpcMethods {
+}
+IbftJsonRpcMethods --|> ApiGroupJsonRpcMethods
+
+class QbftJsonRpcMethods {
+}
+QbftJsonRpcMethods --|> ApiGroupJsonRpcMethods
+
+
+class AdminJsonRpcMethods {
+}
+AdminJsonRpcMethods --|> ApiGroupJsonRpcMethods
+
+class DebugJsonRpcMethods {
+}
+DebugJsonRpcMethods --|> ApiGroupJsonRpcMethods
+
+class EthJsonRpcMethods {
+}
+EthJsonRpcMethods --|> ApiGroupJsonRpcMethods
+
+class MinerJsonRpcMethods {
+}
+MinerJsonRpcMethods --|> ApiGroupJsonRpcMethods
+
+class NetJsonRpcMethods {
+}
+NetJsonRpcMethods --|> ApiGroupJsonRpcMethods
+
+class PermJsonRpcMethods {
+}
+PermJsonRpcMethods --|> ApiGroupJsonRpcMethods
+
+class PluginsJsonRpcMethods {
+}
+PluginsJsonRpcMethods --|> ApiGroupJsonRpcMethods
+
+class TraceJsonRpcMethods {
+}
+TraceJsonRpcMethods --|> ApiGroupJsonRpcMethods
+
+class TxPoolJsonRpcMethods {
+}
+TxPoolJsonRpcMethods --|> ApiGroupJsonRpcMethods
+
+class Web3JsonRpcMethods {
+}
+Web3JsonRpcMethods --|> ApiGroupJsonRpcMethods
+
+
+class PrivacyApiGroupJsonRpcMethods {
+}
+PrivacyApiGroupJsonRpcMethods --|> ApiGroupJsonRpcMethods
+
+class EeaJsonRpcMethods {
+}
+EeaJsonRpcMethods --|> PrivacyApiGroupJsonRpcMethods
+
+class GoQuorumJsonRpcPrivacyMethods {
+}
+GoQuorumJsonRpcPrivacyMethods --|> PrivacyApiGroupJsonRpcMethods
+
+class PrivJsonRpcMethods {
+}
+PrivJsonRpcMethods --|> PrivacyApiGroupJsonRpcMethods
+
+class PrivxJsonRpcMethods {
+}
+PrivxJsonRpcMethods --|> PrivacyApiGroupJsonRpcMethods
+
+
+abstract class AdminModifyPeer {
+    -performOperation()
+}
+AdminModifyPeer ..|> JsonRpcMethod
+
+class AdminAddPeer {
+
+}
+AdminAddPeer --|> AdminModifyPeer
+
+class AdminRemovePeer {
+
+}
+AdminRemovePeer --|> AdminModifyPeer
+
+class AdminChangeLogLevel {
+    -setLogLevel()
+}
+AdminChangeLogLevel ..|> JsonRpcMethod
+
+class EthBlockNumber {
+}
+EthBlockNumber ..|> JsonRpcMethod
+
+class EthChainId {
+}
+EthChainId ..|> JsonRpcMethod
+
+class EthEstimateGas {
+    -BlockchainQueries
+    -TransactionSimulator
+    -processEstimateGas()
+}
+EthEstimateGas ..|> JsonRpcMethod
+
+class EthSendRawTransaction {
+    -TransactionPool
+}
+EthSendRawTransaction ..|> JsonRpcMethod
+
+@enduml

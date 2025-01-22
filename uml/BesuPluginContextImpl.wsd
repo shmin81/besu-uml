@@ -1,0 +1,304 @@
+@startuml
+
+title "Besu - Plugin"
+scale 1.0
+
+class Besu {
+    +main()
+}
+
+class BesuCommand {
+    -BesuController
+    -Runner
+    -BesuPluginContextImpl
+    +parse()
+    +run()
+}
+
+Besu --> BesuCommand
+BesuCommand --> BesuPluginContextImpl
+
+BesuContext <|.. BesuPluginContextImpl
+PluginVersionsProvider <|.. BesuPluginContextImpl
+
+interface PluginVersionsProvider {
+    +getPluginVersions()
+}
+
+interface BesuContext {
+    +getService()
+}
+
+class BesuPluginContextImpl {
+    -BesuService: Map
+    -BesuPlugin: List
+    +addService()
+    +getService()
+    +registerPlugins()
+    +startPlugins()
+    +stopPlugins()
+}
+
+interface BesuPlugin {
+    +getName()
+    +register()
+    +start()
+    +reloadConfiguration()
+    +stop()
+}
+
+class RocksDBCLIOptions { 
+    +create()
+    +fromConfig()
+}
+
+interface KeyValueStorageFactory {
+    +getName()
+    +create()
+    +isSegmentIsolationSupported()
+}
+
+interface PrivacyKeyValueStorageFactory {
+    +getVersion()
+}
+KeyValueStorageFactory <|.. PrivacyKeyValueStorageFactory
+
+class RocksDBKeyValueStorageFactory {
+    -KeyValueStorage
+    -storagePath()
+    -readDatabaseVersion()
+}
+KeyValueStorageFactory <|.. RocksDBKeyValueStorageFactory
+
+class RocksDBKeyValuePrivacyStorageFactory {
+    -RocksDBKeyValueStorageFactory
+}
+RocksDBKeyValuePrivacyStorageFactory o-- RocksDBKeyValueStorageFactory
+PrivacyKeyValueStorageFactory <|.. RocksDBKeyValuePrivacyStorageFactory
+
+class RocksDBPlugin {
+    -RocksDBCLIOptions
+    -BesuContext
+    -RocksDBKeyValueStorageFactory
+    -RocksDBKeyValuePrivacyStorageFactory
+    -createFactoriesAndRegisterWithStorageService()
+}
+
+class MemoryKeyValueStorageFactory {
+    -name: String
+    -storageMap: Map<SegmentIdentifier, InMemoryKeyValueStorage>
+}
+KeyValueStorageFactory <|.. MemoryKeyValueStorageFactory
+
+class InMemoryStoragePlugin {
+    -BesuContext
+    -MemoryKeyValueStorageFactory
+}
+
+interface BesuService {
+}
+
+interface BesuConfiguration {
+    +getStoragePath()
+    +getDataPath()
+    +getDatabaseVersion()
+}
+
+class BesuCommandConfigurationService {
+}
+
+BesuPlugin <|.. RocksDBPlugin
+BesuPlugin <|.. InMemoryStoragePlugin
+
+RocksDBCLIOptions ..* RocksDBPlugin
+RocksDBKeyValueStorageFactory ..* RocksDBPlugin
+RocksDBKeyValuePrivacyStorageFactory ..* RocksDBPlugin
+
+MemoryKeyValueStorageFactory ..* InMemoryStoragePlugin
+
+
+RocksDBPlugin o-- BesuPluginContextImpl
+InMemoryStoragePlugin o-- BesuPluginContextImpl
+
+BesuConfiguration ..|> BesuService
+BesuCommandConfigurationService ..|> BesuConfiguration
+BesuPluginContextImpl o-- BesuCommandConfigurationService
+
+interface PicoCLIOptions {
+    +addPicoCLIOptions()
+}
+
+class PicoCLIOptionsImpl {
+    -CommandLine
+}
+
+PicoCLIOptions ..|> BesuService
+PicoCLIOptionsImpl ..|> PicoCLIOptions
+BesuPluginContextImpl o-- PicoCLIOptionsImpl
+
+interface SecurityModuleService {
+    +register()
+    +getByName()
+}
+
+class SecurityModuleServiceImpl {
+    -SecurityModule:Map
+}
+
+SecurityModuleService ..|> BesuService
+SecurityModuleServiceImpl --|> SecurityModuleService
+BesuPluginContextImpl o-- SecurityModuleServiceImpl
+
+interface StorageService {
+    +registerKeyValueStorage()
+    +getAllSegmentIdentifiers()
+    +getByName()
+}
+
+class StorageServiceImpl {
+    -SegmentIdentifier:List
+    -KeyValueStorageFactory:Map
+}
+
+StorageService ..|> BesuService
+StorageServiceImpl ..|> StorageService
+BesuPluginContextImpl o-- StorageServiceImpl
+RocksDBKeyValueStorageFactory --o StorageServiceImpl
+RocksDBKeyValuePrivacyStorageFactory --o StorageServiceImpl
+
+interface MetricCategoryRegistry {
+    +addMetricCategory()
+}
+class MetricCategoryRegistryImpl {
+    -MetricCategory:List
+}
+MetricCategoryRegistry ..|> BesuService
+MetricCategoryRegistryImpl ..|> MetricCategoryRegistry
+BesuPluginContextImpl o-- MetricCategoryRegistryImpl
+
+interface PermissioningService {
+    +registerNodePermissioningProvider()
+    +registerNodeMessagePermissioningProvider()
+}
+class PermissioningServiceImpl {
+        -NodeConnectionPermissioningProvider:List
+        -NodeMessagePermissioningProvider:List
+}
+PermissioningService ..|> BesuService
+PermissioningServiceImpl ..|> PermissioningService
+BesuPluginContextImpl o-- PermissioningServiceImpl
+
+interface PrivacyPluginService {
+    +setPayloadProvider()
+    +getPayloadProvider()
+    +setPrivateMarkerTransactionFactory()
+    +getPrivateMarkerTransactionFactory()
+    +setPrivacyGroupAuthProvider()
+    +getPrivacyGroupAuthProvider
+    +setPrivacyGroupGenesisProvider()
+    +getPrivacyGroupGenesisProvider()
+}
+class PrivacyPluginServiceImpl {
+    -PrivacyPluginPayloadProvider
+    -PrivateMarkerTransactionFactory
+    -PrivacyGroupAuthProvider
+    -PrivacyGroupGenesisProvider
+}
+PrivacyPluginService ..|> BesuService
+PrivacyPluginServiceImpl ..|> PrivacyPluginService
+BesuPluginContextImpl o-- PrivacyPluginServiceImpl
+
+interface RpcEndpointService {
+    +registerRPCEndpoint()
+}
+class RpcEndpointServiceImpl {
+    -PluginRpcRequest:Map
+}
+RpcEndpointService ..|> BesuService
+RpcEndpointServiceImpl ..|> RpcEndpointService
+BesuPluginContextImpl o-- RpcEndpointServiceImpl
+
+interface BesuEvents {
+    +addBlockPropagatedListener()
+    +addBlockAddedListener()
+    +addBlockReorgListener()
+    +addTransactionAddedListener()
+    +addTransactionDroppedListener()
+    +addSyncStatusListener()
+    +addLogListener()
+    +remove()
+}
+class BesuEventsImpl {
+    -Blockchain
+    -BlockBroadcaster
+    -TransactionPool
+    -SyncState
+}
+BesuEvents ..|> BesuService
+BesuEventsImpl ..|> BesuEvents
+BesuPluginContextImpl o-- BesuEventsImpl
+
+interface MetricsSystem {
+    +addMetricCategory()
+}
+interface ObservableMetricsSystem {
+}
+class NoOpMetricsSystem {}
+class OpenTelemetrySystem {}
+class PrometheusMetricsSystem {}
+MetricsSystem ..|> BesuService
+ObservableMetricsSystem ..|> MetricsSystem
+BesuPluginContextImpl o-- ObservableMetricsSystem
+NoOpMetricsSystem ..|> ObservableMetricsSystem
+OpenTelemetrySystem ..|> ObservableMetricsSystem
+PrometheusMetricsSystem ..|> ObservableMetricsSystem
+
+
+interface PoAMetricsService {
+    +getValidatorsForLatestBlock()
+    +getProposerOfBlock()
+}
+PoAMetricsService ..|> BesuService
+interface PoaQueryService {
+    +getValidatorsForLatestBlock()
+    +getProposerOfBlock()
+    +getLocalSignerAddress()
+}
+PoaQueryService ..|> BesuService
+class PoaQueryServiceImpl {
+    -BlockInterface
+    -Blockchain
+    -NodeKey
+}
+PoaQueryServiceImpl ..|> PoAMetricsService
+PoaQueryServiceImpl ..|> PoaQueryService
+
+interface IbftQueryService {
+    +getRoundNumberFrom()
+    +getSignersFrom()
+}
+IbftQueryService ..|> PoaQueryService
+
+class IbftQueryServiceImpl {
+    -BftBlockInterface
+}
+IbftQueryServiceImpl ..|> IbftQueryService
+IbftQueryServiceImpl --|> PoaQueryServiceImpl
+BesuPluginContextImpl o-- IbftQueryServiceImpl
+
+interface BftQueryService {
+    +getRoundNumberFrom()
+    +getSignersFrom()
+    +getConsensusMechanismName()
+}
+class BftQueryServiceImpl {
+    -ValidatorProvider
+    -BftBlockInterface
+    -consensusMechanismName:String
+}
+BftQueryService ..|> PoaQueryService
+BftQueryServiceImpl ..|> BftQueryService
+BftQueryServiceImpl --|> PoaQueryServiceImpl
+BesuPluginContextImpl o-- BftQueryServiceImpl
+
+@enduml

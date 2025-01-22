@@ -1,0 +1,279 @@
+@startuml
+title "Storage"
+scale 1.0
+
+interface KeyValueStorage {
+    +getSegmentIdentifierByName()
+    +get()
+    +startTransaction()
+    +streamKeys()
+    +...()
+}
+
+interface SegmentedKeyValueStorage<S> {
+    +getSegmentIdentifierByName()
+    +get()
+    +startTransaction()
+    +streamKeys()
+    +...()
+}
+
+class RocksDBColumnarKeyValueStorage.RocksDbTransaction {
+    +put()
+    +commit()
+    +......()
+    -close()
+}
+
+class RocksDBColumnarKeyValueStorage {
+    -db: OptimisticTransactionDB
+    -...
+}
+RocksDBColumnarKeyValueStorage.RocksDbTransaction --o RocksDBColumnarKeyValueStorage
+RocksDBColumnarKeyValueStorage <|. SegmentedKeyValueStorage
+
+class SegmentedKeyValueStorageAdapter {
+    -segmentHandle
+    -storage: SegmentedKeyValueStorage
+}
+SegmentedKeyValueStorageAdapter <|. KeyValueStorage
+
+class RocksDBKeyValueStorageFactory {
+    -isSegmentIsolationSupported: Boolean
+    -segmentedStorage: SegmentedKeyValueStorage
+    -unsegmentedStorage: KeyValueStorage
+    -rocksDBConfiguration
+    +create()
+}
+
+class KeyValueStorageProviderBuilder {
+    +withStorageFactory()
+    +build()
+}
+
+RocksDBColumnarKeyValueStorage --o SegmentedKeyValueStorageAdapter
+SegmentedKeyValueStorageAdapter --o RocksDBKeyValueStorageFactory
+RocksDBKeyValueStorageFactory --o KeyValueStorageProviderBuilder
+KeyValueStorageProviderBuilder -> KeyValueStorageProvider
+
+interface StorageProvider {
+    +createBlockchainStorage()
+    +createWorldStateStorage()
+    +createWorldStatePreimageStorage()
+    +getStorageBySegmentIdentifier()
+    +...private...()
+    +close()
+}
+
+class KeyValueStorageProvider {
+    -storageCreator:Function<SegmentIdentifier, KeyValueStorage>
+    -worldStatePreimageStorage:KeyValueStorage  
+    -privateWorldStatePreimageStorage:KeyValueStorage  
+    -storageInstances:Map<SegmentIdentifier, KeyValueStorage>  
+}
+StorageProvider <|..KeyValueStorageProvider
+
+class KeyValueStoragePrefixedKeyBlockchainStorage {
+    -keyValueStorage:RocksDB_BLOCKCHAIN
+    -blockHeaderFunctions
+}
+
+class WorldStatePreimageKeyValueStorage {
+    -keyValueStorage:LimitedInMemoryKeyValueStorage
+}
+
+class WorldStateKeyValueStorage {
+    -keyValueStorage:RocksDB_WORLD_STATE
+    -nodeAddedListeners:Subscribers
+    -lock:ReentrantLock
+}
+
+KeyValueStorageProvider o.. KeyValueStoragePrefixedKeyBlockchainStorage
+KeyValueStoragePrefixedKeyBlockchainStorage ..|> BlockchainStorage
+
+KeyValueStorageProvider o.. WorldStatePreimageKeyValueStorage
+WorldStatePreimageKeyValueStorage ..|> WorldStatePreimageStorage
+
+KeyValueStorageProvider o.. WorldStateKeyValueStorage
+WorldStateKeyValueStorage ..|> WorldStateStorage
+
+interface BlockchainStorage {
+    +getChainHead()
+    +getForkHeads()
+    +getBlockHeader()
+    +getBlockBody()
+    +getTransactionReceipts()
+    +getBlockHash()
+    +getTotalDifficulty()
+    +getTransactionLocation()
+    +updater()
+}
+
+interface BlockchainStorage.Updater {
+    +putBlockHeader()
+    +putBlockBody()
+    +putTransactionLocation()
+    +putTransactionReceipts()
+    +putBlockHash()
+    +putTotalDifficulty()
+    +setChainHead()
+    +setForkHeads()
+    +removeBlockHash()
+    +removeTransactionLocation()
+    +commit()
+    +rollback()
+}
+BlockchainStorage *.. BlockchainStorage.Updater
+
+interface WorldStateStorage {
+    +getCode()
+    +getAccountTrieNodeData()
+    +getAccountStateTrieNode()
+    +getAccountStorageTrieNode()
+    +getNodeData()
+    +isWorldStateAvailable()
+    +contains()
+    +clear()
+    +updater()
+    +......()
+}
+
+interface WorldStateStorage.Updater {
+    +putCode()
+    +saveWorldState()
+    +putAccountStateTrieNode()
+    +removeAccountStateTrieNode()
+    +putAccountStorageTrieNode()
+    +commit()
+    +rollback()
+}
+WorldStateStorage *.. WorldStateStorage.Updater
+
+interface WorldStatePreimageStorage {
+    +getStorageTrieKeyPreimage()
+    +getAccountTrieKeyPreimage()
+    +updater()
+}
+
+interface WorldStatePreimageStorage.Updater {
+    +putStorageTrieKeyPreimage()
+    +putAccountTrieKeyPreimage()
+    +commit()
+    +rollback()
+}
+WorldStatePreimageStorage *.. WorldStatePreimageStorage.Updater
+
+interface Blockchain {
+    +getChainHead()
+    +getChainHeadBlockNumber()
+    +getChainHeadHash()
+    +getGenesisBlock()
+    +getBlockByNumber()
+    +getBlockByHash()
+    +......()
+}
+
+interface MutableBlockchain {
+    +appendBlock()
+    +rewindToBlock()
+}
+
+class DefaultBlockchain {
+    -BlockchainStorage
+    -BlockAddedObserver:Subscribers
+    -ChainReorgObserver:Subscribers
+    -DefaultBlockchain()
+    +createMutable()
+    +create()
+}
+
+Blockchain <|.. MutableBlockchain
+MutableBlockchain <|-- DefaultBlockchain
+
+interface WorldStateArchive {
+    +get()
+    +isWorldStateAvailable()
+    +getMutable():MutableWorldState
+    +getNodeData()
+    +getAccountProof()
+}
+class DefaultWorldStateArchive {
+    -worldStateStorage:WorldStateStorage
+    -preimageStorage:WorldStatePreimageStorage
+    -worldStateProof:WorldStateProofProvider
+}
+WorldStateArchive <|.. DefaultWorldStateArchive
+
+class ProtocolContext {
+    -blockchain:MutableBlockchain
+    -worldStateArchive:WorldStateArchive
+    -consensusContext:ConsensusContext
+    +getBlockchain()
+    +getWorldStateArchive()
+    +getConsensusContext()
+}
+
+DefaultBlockchain --o ProtocolContext
+DefaultWorldStateArchive --o ProtocolContext
+
+class BesuControllerBuilder {
+    +build()
+}
+
+KeyValueStorageProvider -> BesuControllerBuilder
+BesuControllerBuilder -> ProtocolContext
+
+
+abstract class AbstractWorldUpdater<WorldView, Account> {
+    -world: WorldView
+    #updatedAccounts
+    #deletedAccounts
+    #getForMutation()
+    #wrappedWorldView()
+    #getUpdatedAccounts()
+    #getDeletedAccounts()
+    #reset()
+}
+
+interface WorldUpdater {
+    +createAccount()
+    +getOrCreate()
+    +getAccount()
+    +......()
+    +revert()
+    +commit()
+    +parentUpdater()
+}
+
+interface MutableWorldView {
+    +updater()
+}
+
+interface WorldView {
+    +get()
+}
+interface WorldState {
+    +rootHash()
+    +streamAccounts()
+}
+interface MutableWorldState {
+    +copy()
+    +persist()
+}
+
+
+
+WorldView <|.. MutableWorldView
+MutableWorldView <|.. WorldUpdater
+WorldUpdater <|-- AbstractWorldUpdater 
+AbstractWorldUpdater <|-- DefaultMutableWorldState.Updater
+DefaultMutableWorldState.WorldStateAccount --|> Account
+
+WorldView <|.. WorldState
+WorldState <|.. MutableWorldState
+MutableWorldView <|.. MutableWorldState
+MutableWorldState <|.. DefaultMutableWorldState
+
+DefaultWorldStateArchive --> DefaultMutableWorldState
+
+@enduml

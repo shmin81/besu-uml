@@ -1,0 +1,192 @@
+@startuml
+title "Consensus"
+scale 1.0
+
+class BftProcesser {
+    -BftEventQueue
+    -EventMultiplexer
+    +run()
+    +stop()
+}
+
+BftProcesser o-- BftEventQueue 
+BftProcesser o-- EventMultiplexer
+
+BftEventHandler --o EventMultiplexer 
+
+BftEventQueue o-- BftEvent
+interface BftEvent {
+    +getType()
+}
+
+
+BftEvent <|.. BftReceivedMessageEvent
+BftReceivedMessageEvent .. NewChainHead
+BftEvent <|.. BlockTimerExpiry
+BlockTimerExpiry .. RoundExpiry
+
+class BftReceivedMessageEvent {
+    -Message
+}
+
+class BlockTimerExpiry {
+    -ConsensusRoundIdentifier
+}
+
+class NewChainHead {
+    -BlockHeader
+}
+
+class RoundExpiry {
+    -ConsensusRoundIdentifier
+}
+
+
+class BftEventQueue {
+    -BlockingQueue<BftEvent>
+    +add()
+    +poll()
+    +size()
+}
+
+class EventMultiplexer {
+    -BftEventHandler
+    +handleBftEvent()
+}
+
+interface BftEventHandler {
+    +start()
+    +handleMessageEvent()
+    +handleNewBlockEvent()
+    +handleBlockTimerExpiry()
+    +handleRoundExpiry()
+}
+
+BftEventHandler <|.. BaseBftControlle
+
+abstract class BaseBftControlle {
+    -Blockchain
+    -BftFinalState
+    -FutureMessageBuffer
+    -Gossiper
+    -MessageTracker
+    -SynchronizerUpdater
+    #handleMessage()
+    #consumeMessage()
+    #createNewHeightManager()
+    #getCurrentHeightManager()
+
+}
+
+BaseBftControlle <|.. IbftController
+BaseBftControlle <|.. QbftController
+
+class IbftController {
+    -BaseIbftBlockHeightManager
+    -IbftBlockHeightManagerFactory
+}
+
+class QbftController {
+
+}
+
+IbftController o--> IbftBlockHeightManagerFactory
+
+class IbftBlockHeightManagerFactory {
+    -IbftRoundFactory
+    -BftFinalState
+    -MessageValidatorFactory
+    -MessageFactory
+    +create()
+    -createNoOpBlockHeightManager()
+    -createFullBlockHeightManager()
+}
+
+IbftBlockHeightManagerFactory ..> IbftBlockHeightManager
+
+
+interface BaseBlockHeightManager {
+    +handleBlockTimerExpiry()
+    +roundExpired()
+    +getChainHeight()
+    +getParentBlockHeader()
+}
+
+interface BaseIbftBlockHeightManager {
+    +handleProposalPayload()
+    +handlePreparePayload()
+    +handleCommitPayload()
+    +handleRoundChangePayload()
+}
+
+class IbftBlockHeightManager {
+    -IbftRoundFactory
+    -RoundChangeManager
+    -BlockHeader: parentHeader
+    -MessageFactory
+    -IbftMessageTransmitter
+    -BlockTimer
+    -BftFinalState
+    -IbftRound
+    -etc.
+    -startNewRound()
+}
+
+BaseBlockHeightManager <|.. BaseIbftBlockHeightManager
+BaseIbftBlockHeightManager <|.. IbftBlockHeightManager
+BaseIbftBlockHeightManager ..* IbftController
+
+class BlockTimer {
+    +startTimer()
+}
+IbftBlockHeightManager o-- BlockTimer
+
+class RoundTimer {
+    +startTimer()
+}
+RoundTimer --o IbftRound 
+
+class IbftRoundFactory {
+    -BftBlockCreatorFactory
+    -etc.
+    +createNewRound()
+    +createNewRoundWithState()
+}
+IbftBlockHeightManager o--> IbftRoundFactory
+
+class IbftRound {
+    -RoundState
+    -BlockCreator
+    -BlockImporter
+    -MessageFactory
+    -IbftMessageTransmitter
+    -etc.
+    +getRoundIdentifier()
+    +createAndSendProposalMessage()
+    +handleProposalMessage()
+    +handlePrepareMessage()
+    +handleCommitMessage()
+    -updateStateWithProposalAndTransmit()
+    -updateStateWithProposedBlock()
+    -importBlockToChain()
+    -etc()
+}
+IbftRound ..* IbftBlockHeightManager
+IbftRound <.. IbftRoundFactory
+
+
+class RoundState {
+    -Proposal: proposalMessage
+    -Set<Prepare>: prepareMessages
+    -Set<Commit>: commitMessages
+    -prepared: bool
+    -commited: bool
+    +setProposedBlock()
+    +addPrepareMessage()
+    +addCommitMessage()
+    +isPrepared()
+    +isCommitted()
+}
+RoundState --o IbftRound 
+
+@enduml

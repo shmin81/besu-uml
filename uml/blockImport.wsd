@@ -1,0 +1,152 @@
+@startuml
+title "Consensus"
+scale 1.0
+
+
+interface Blockchain {
+    +getChainHead()
+    +getChainHeadBlockNumber()
+    +getChainHeadHash()
+    +getGenesisBlock()
+    +getBlockByNumber()
+    +getBlockByHash()
+    +......()
+}
+
+interface MutableBlockchain {
+    +appendBlock()
+    +rewindToBlock()
+}
+
+class DefaultBlockchain {
+    -BlockchainStorage
+    -BlockAddedObserver:Subscribers
+    -ChainReorgObserver:Subscribers
+    -DefaultBlockchain()
+    +createMutable()
+    +create()
+}
+
+
+Blockchain <|..MutableBlockchain
+MutableBlockchain <|.. DefaultBlockchain
+
+
+
+interface StorageProvider {
+    +createBlockchainStorage()
+    +createWorldStateStorage()
+    +createWorldStatePreimageStorage()
+    +......()
+}
+
+class KeyValueStorageProvider {
+    -worldStatePreimageStorage
+    -privateWorldStatePreimageStorage
+    -storageInstances
+}
+StorageProvider <|..KeyValueStorageProvider
+
+
+class KeyValueStoragePrefixedKeyBlockchainStorage {
+
+}
+class BonsaiWorldStateKeyValueStorage{
+
+}
+class WorldStateKeyValueStorage {
+
+}
+KeyValueStorageProvider <.. KeyValueStoragePrefixedKeyBlockchainStorage
+KeyValueStorageProvider <.. BonsaiWorldStateKeyValueStorage
+KeyValueStorageProvider <.. WorldStateKeyValueStorage
+
+class KeyValueStorageProviderBuilder {
+    +withStorageFactory()
+    +build()
+}
+
+class KeyValueStorageFactory {
+    +getName()
+    +create()
+    +isSegmentIsolationSupported()
+}
+
+class RocksDBKeyValueStorageFactory {
+
+}
+
+class MemoryKeyValueStorageFactory {
+
+}
+KeyValueStorageFactory <|.. RocksDBKeyValueStorageFactory
+KeyValueStorageFactory <|.. MemoryKeyValueStorageFactory
+
+interface KeyValueStorage {
+    +containsKey()
+    +get()
+    +tryDelete()
+    +startTransaction()
+    +......()
+}
+
+interface SegmentedKeyValueStorage {
+
+}
+class SegmentedKeyValueStorage {
+
+}
+class RocksDBColumnarKeyValueStorage {
+    +thisIsNewSegmentedStorage()
+}
+SegmentedKeyValueStorage <|.. SegmentedKeyValueStorage
+RocksDBColumnarKeyValueStorage <|-- SegmentedKeyValueStorage
+
+class RocksDBKeyValueStorage {
+    +thisIsOldVersionOnly()
+}
+
+class SegmentedKeyValueStorageAdapter {
+
+}
+
+class LimitedInMemoryKeyValueStorage {
+
+}
+class InMemoryKeyValueStorage {
+
+}
+KeyValueStorage <|.. RocksDBKeyValueStorage
+KeyValueStorage <|.. SegmentedKeyValueStorageAdapter
+KeyValueStorage <|.. LimitedInMemoryKeyValueStorage
+KeyValueStorage <|.. InMemoryKeyValueStorage
+
+
+interface BlockchainStorage {
+    +getChainHead()
+    +getForkHeads()
+    +getBlockHeader()
+    +getBlockBody()
+    +getTransactionReceipts()
+    +getBlockHash()
+    +getTotalDifficulty()
+    +getTransactionLocation()
+    +updater()
+}
+
+interface BlockchainStorage.Updater {
+    +putBlockHeader()
+    +putBlockBody()
+    +putTransactionLocation()
+    +putTransactionReceipts()
+    +putBlockHash()
+    +putTotalDifficulty()
+    +setChainHead()
+    +setForkHeads()
+    +removeBlockHash()
+    +removeTransactionLocation()
+    +commit()
+    +rollback()
+}
+
+@enduml

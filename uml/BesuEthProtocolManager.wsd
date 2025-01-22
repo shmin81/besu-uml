@@ -1,0 +1,176 @@
+
+@startuml
+
+title "Besu - EthProtocolManager"
+scale 1.0
+
+class BesuController {
+    -ProtocolSchedule
+    -ProtocolContext
+    -EthProtocolManager
+    -GenesisConfigOptions
+    -SubProtocolConfiguration
+    -NodeKey
+    -Synchronizer
+    -SyncState
+    -MiningCoordinator
+    -MiningParameters
+    -TransactionPool
+    -JsonRpcMethods
+    -PrivacyParameters
+    -PluginServiceFactory
+    -Closeable:List
+    +get()
+}
+
+
+
+
+class ProtocolContext {
+    -MutableBlockchain
+    -WorldStateArchive
+    -ConsensusContext
+    +get()
+}
+
+interface Blockchain {
+    +getChainHead()
+    +getChainHeadBlockNumber()
+    +getChainHeadHash()
+    +getGenesisBlock()
+    +getBlockByNumber()
+    +getBlockByHash()
+    +......()
+}
+
+interface MutableBlockchain {
+    +appendBlock()
+    +rewindToBlock()
+}
+
+class DefaultBlockchain {
+    -BlockchainStorage
+    -BlockAddedObserver:Subscribers
+    -ChainReorgObserver:Subscribers
+}
+
+
+Blockchain <|..MutableBlockchain
+MutableBlockchain <|.. DefaultBlockchain
+ProtocolContext o-- Blockchain
+BesuController o-- ProtocolContext
+
+
+interface MinedBlockObserver {
+    +blockMined()
+}
+
+interface ProtocolManager {
+    +getSupportedProtocol()
+    +handleNewConnection()
+    +processMessage()
+    +handleDisconnect()
+    +stop()
+    +close()
+}
+
+class EthProtocolManager {
+    -EthScheduler
+    -ForkIdManager
+    -EthPeers
+    -EthMessages
+    -EthContext
+    -Blockchain
+    -BlockBroadcaster
+    -PeerValidator:List
+}
+
+ProtocolManager <|.. EthProtocolManager
+MinedBlockObserver <|.. EthProtocolManager
+BesuController o-- EthProtocolManager
+
+Blockchain ..* EthProtocolManager 
+
+class EthContext {
+    -EthPeers
+    -EthMessages
+    -EthScheduler
+    +get()
+}
+EthContext ..* EthProtocolManager 
+
+
+class EthMessages {
+    -listenersByCode: Map<int,Subscribers<MessageCallback>>
+    -messageResponseConstructorsByCode: Map<int,Message..>
+}
+EthProtocolManager *.. EthMessages 
+
+class EthServer {
+    -EthMessages
+    -registerResponseConstructors()
+}
+EthProtocolManager *.. EthServer 
+EthMessages *.. EthServer
+
+interface PeerConnection {
+    +send()
+    +getPeer()
+    +terminateConnection()
+    +disconnect()
+}
+PeerConnection ..* EthPeer
+PeerConnection ..o EthPeers
+
+class EthPeer {
+    -connection:PeerConnection
+    -Clock
+    -ChainState
+    -headersRequestManager:RequestManager
+    -bodiesRequestManager:RequestManager
+    -receiptsRequestManager:RequestManager
+    -nodeDataRequestManager:RequestManager
+    -pooledTransactionsRequestManager:RequestManager
+    -validationStatus:Map<PeerValidator,bool>
+}
+EthPeer ..* EthPeers
+
+class EthPeers {
+    -connections: Map<PeerConnection, EthPeer>
+    -NodeMessagePermissioningProvider: List
+    -ConnectCallback:Subscribers
+    -DisconnectCallback:Subscribers
+    -PendingPeerRequest:Subscribers
+}
+EthPeers ..* EthProtocolManager 
+
+class BlockBroadcaster {
+    -EthContext
+    -blockPropagatedSubscribers:Subscribers
+    +subscribePropagateNewBlocks()
+    +propagate()
+}
+EthProtocolManager *.. BlockBroadcaster 
+
+class EthScheduler {
+    -scheduler: ScheduledExecutorService
+    -syncWorkerExecutor: ExecutorService
+    -txWorkerExecutor: ExecutorService
+    -servicesExecutor: ExecutorService
+    -computationExecutor: ExecutorService
+    +scheduleSyncWorkerTask()
+    +scheduleTxWorkerTask()
+    +...()
+    +stop()
+}
+EthProtocolManager *.. EthScheduler 
+
+class BftProtocolManager {
+    -BftEventQueue
+    -PeerConnectionTracker
+    -Capability
+    -subProtocolName:String
+}
+BftProtocolManager ..|> ProtocolManager
+
+@enduml

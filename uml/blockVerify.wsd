@@ -1,0 +1,82 @@
+@startuml
+title "Block"
+scale 1.0
+
+abstract class AbstractMessageProcessor {
+    -EVM
+    -forceDeleteAccountsWhenEmpty: Collection<Address>
+    +process()
+    -...
+}
+
+class ContractCreationProcessor {
+    
+}
+
+class MessageCallProcessor {
+
+}
+
+ContractCreationProcessor --|> AbstractMessageProcessor
+MessageCallProcessor --|> AbstractMessageProcessor
+
+class EVM {
+    -OperationRegistry
+    -GasCalculator
+    -EvmConfiguration
+    -JumpDestCache
+    +runToHalt()
+    -executeNextOperation()
+}
+
+
+interface BlockValidator {
+    -validateAndProcessBlock()
+    -fastBlockValidation()
+}
+
+class MainnetBlockValidator {
+    -BlockHeaderValidator
+    -BlockBodyValidator
+    -BlockProcessor
+    -BadBlockManager
+    +processBlock()
+}
+
+BlockValidator <|.. MainnetBlockValidator
+
+interface BlockProcessor {
+    +processBlock()
+}
+
+abstract class AbstractBlockProcessor {
+    -MainnetTransactionProcessor
+    -TransactionReceiptFactory
+    -...
+}
+
+class MainnetBlockProcessor {
+    -rewardCoinbase()
+}
+
+BlockProcessor <|.. AbstractBlockProcessor
+AbstractBlockProcessor <|-- MainnetBlockProcessor
+
+BlockValidator *- BlockProcessor
+
+
+class MainnetTransactionProcessor {
+    -MainnetTransactionValidator
+    -ContractCreationProcessor
+    -MessageCallProcessor
+    -...
+    +processTransaction()
+}
+
+AbstractBlockProcessor *- MainnetTransactionProcessor
+
+MainnetTransactionProcessor *- AbstractMessageProcessor
+
+AbstractMessageProcessor *-- EVM
+
+@enduml

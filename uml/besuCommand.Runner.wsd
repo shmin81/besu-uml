@@ -1,0 +1,163 @@
+@startuml
+
+title "Besu - Runner"
+
+scale 1.0
+
+class Besu {
+    +main()
+}
+
+object picocli_library {
+    +parseWithHandlers()
+}
+
+interface Runnable {
+    +run()
+}
+
+class DefaultCommandValues {
+}
+
+class BesuCommand {
+    -CommandLine:picocli
+    -BesuPluginContextImpl
+    -BesuController
+    -BesuController.Builder
+    -RunnerBuilder
+    +parse()
+}
+
+picocli_library <-- BesuCommand
+Runnable <|.. BesuCommand
+DefaultCommandValues <|.. BesuCommand
+
+class BesuPluginContextImpl {
+    -BesuService: Map
+    -BesuPlugin: List
+    +addService()
+    +getService()
+    +registerPlugins()
+    +startPlugins()
+    +stopPlugins()
+}
+
+interface BesuContext {
+    +getService()
+}
+
+class BesuController {
+    -ProtocolSchedule
+    -ProtocolContext
+    -EthProtocolManager
+    -Synchronizer: DefaultSynchronizer
+    -MiningCoordinator: BftMiningCoordinator
+    -TransactionPool
+    -SyncState
+    +get()
+}
+
+class DefaultSynchronizer {
+    -SyncState
+    -BlockPropagationManager
+    -FullSyncDownloader
+    -FastSyncDownloader:Optional
+    -Pruner:Optional
+}
+
+interface Synchronizer {
+    +start()
+    +stop()
+}
+
+class BftMiningCoordinator {
+    -BftEventHandler
+    -BftProcessor
+    -BftBlockCreatorFactory
+    -BftEventQueue
+    -BftExecutors
+    +Blockchain
+}
+
+interface MiningCoordinator {
+    +start()
+    +stop()
+    +createBlock()
+}
+
+interface BlockAddedObserver {
+    +onBlockAdded()
+}
+
+class Runner {
+    -BesuController
+    -NatService
+    -NetworkRunner
+    -Vertx
+    -JsonRpcHttpService:Optional
+    -WebSocketService:Optional
+    -GraphQLHttpService:Optional
+    -MetricsService:Optional
+    -AutoTransactionLogBloomCachingService:Optional
+    -EthStatsService:Optional
+    -StratumServer:Optional
+    +start()
+    +stop()
+}
+
+class NetworkRunner {
+    +P2PNetwork: DefaultP2PNetwork
+    +ProtocolManager: List
+    +start()
+    +stop()
+}
+
+class DefaultP2PNetwork {
+    -ScheduledExecutorService
+    -PeerDiscoveryAgent
+    -RlpxAgent
+    -NetworkingConfiguration
+    -MutableLocalNode
+    -PeerPermissions
+    -MaintainedPeers
+    -NatService
+    -DiscoveryPeer: List
+    -DNSDaemon
+}
+
+interface P2PNetwork {
+    +connect(Peer)
+    +start()
+    +stop()
+    +subscribe()
+}
+
+class JsonRpcHttpService {
+    -Vertx
+    -AuthenticationService:Optional
+    -HttpServer
+    -HealthService
+    +start()
+    +stop()
+}
+
+Besu --> BesuCommand
+BesuCommand o-- BesuPluginContextImpl
+BesuPluginContextImpl ..|> BesuContext
+
+BesuCommand *-- BesuController
+MiningCoordinator <|.. BftMiningCoordinator
+BlockAddedObserver <|.. BftMiningCoordinator
+Synchronizer <|.. DefaultSynchronizer
+BesuController o-- MiningCoordinator
+BesuController o-- Synchronizer
+
+BesuCommand --> Runner
+Runner o-- NetworkRunner
+P2PNetwork --o NetworkRunner
+DefaultP2PNetwork ..|> P2PNetwork
+Runner o-- JsonRpcHttpService
+Runner o-- BesuController
+
+
+@enduml
